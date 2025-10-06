@@ -1,0 +1,6 @@
+@SwimTheWorld.PlayerApi_HostAddress = http://localhost:5034
+
+GET {{SwimTheWorld.PlayerApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
