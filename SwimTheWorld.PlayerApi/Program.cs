@@ -1,9 +1,23 @@
+using Microsoft.EntityFrameworkCore;
+using SwimTheWorld.PlayerApi.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Configure PostgreSQL connection string
+string ResolveEnvVars(string input)
+{
+    return input
+        .Replace("${POSTGRES_USER}", Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "postgres")
+        .Replace("${POSTGRES_PASSWORD}", Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "postgres");
+}
+var postGressConnectionString = ResolveEnvVars(builder.Configuration.GetConnectionString("PlayerDatabase") ?? string.Empty);
+builder.Services.AddDbContext<PlayerDbContext>(options =>
+    options.UseNpgsql(postGressConnectionString));
 
 var app = builder.Build();
 
