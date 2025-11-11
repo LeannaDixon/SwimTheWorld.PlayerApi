@@ -1,0 +1,64 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:8.1.0
+    container_name: kafka
+    # map host port 9092 to container port 9092
+    ports:
+      - "9092:9092"
+    environment:
+      # Single node KRaft mode configuration
+      KAFKA_KRAFT_MODE: "true"
+      # Id all nodes will get to label themselves in the cluster
+      CLUSTER_ID: "some-123-cluster-456-id"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker, controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_OFFSET_TOPIC_REPLICATION_FACTOR: 1  # 1 Copy of meta data - Keeps track of metadata changes: which consumers have read which messages. Default is 3
+      # Tells Kafka to open 2 doors:
+      # 1 = For producers and consumers (clients) to connect to Kafka
+      # 2 = For controller communication = node-to-node communication
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092" # Address Kafka tells clients and brokers to connect to
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # Address Kafka tells controllers how to connect. Using the controller door defined above via alias
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs  # Tells Kafka where to store data
+    # Kafka will store the metaData inside the container and binding it to the volume called kafka_kraft
+    volumes:
+      - kafka_kraft:/var/lib/kafka/data
+
+  player.api:
+    build:  # How to rebuild the app from source
+      context: ./SwimTheWorld.PlayerApi # Folder with dockerfile
+      dockerfile: Dockerfile
+    image: SwimTheWorld.PlayerApi # Name of the build image
+    container_name: player.api
+    ports:
+      - "5000:80"
+    depends_on:
+      - kafka
+      - player.api.database
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      # TODO: Need to add conditions for when health check returns healthy -> service_healthy
+  # depends_on:
+  #   player.api.database:
+  #     condition: service_healthy
+  #     restart: true # ensures if calling docker compose restart on the db, the api is also restarted
+
+  player.api.database:
+    image: postgres:15
+    container_name: player.api.database
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: player.api.database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # TODO: Add healthcheck to ensure DB is ready before API tries to connect
+
+volumes:
+  kafka_kraft:
+  postgres_data:
